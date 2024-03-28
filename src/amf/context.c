@@ -2249,8 +2249,10 @@ void amf_sess_remove(amf_sess_t *sess)
                 ogs_list_count(&sess->sbi.xact_list));
     ogs_sbi_object_free(&sess->sbi);
 
-    if (sess->sm_context_ref)
-        ogs_free(sess->sm_context_ref);
+    if (sess->sm_context.ref)
+        ogs_free(sess->sm_context.ref);
+    if (sess->sm_context.uri)
+        ogs_free(sess->sm_context.uri);
 
     if (sess->payload_container)
         ogs_pkbuf_free(sess->payload_container);

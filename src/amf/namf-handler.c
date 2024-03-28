@@ -287,7 +287,7 @@ int amf_namf_comm_handle_n1_n2_message_transfer(
                 header.resource.component[1] = amf_ue->supi;
                 header.resource.component[2] =
                     (char *)OGS_SBI_RESOURCE_NAME_N1_N2_MESSAGES;
-                header.resource.component[3] = sess->sm_context_ref;
+                header.resource.component[3] = sess->sm_context.ref;
 
                 sendmsg.http.location = ogs_sbi_server_uri(server, &header);
 
@@ -349,7 +349,7 @@ int amf_namf_comm_handle_n1_n2_message_transfer(
             header.resource.component[1] = amf_ue->supi;
             header.resource.component[2] =
                 (char *)OGS_SBI_RESOURCE_NAME_N1_N2_MESSAGES;
-            header.resource.component[3] = sess->sm_context_ref;
+            header.resource.component[3] = sess->sm_context.ref;
 
             sendmsg.http.location = ogs_sbi_server_uri(server, &header);
 
@@ -424,7 +424,7 @@ int amf_namf_comm_handle_n1_n2_message_transfer(
                 header.resource.component[1] = amf_ue->supi;
                 header.resource.component[2] =
                     (char *)OGS_SBI_RESOURCE_NAME_N1_N2_MESSAGES;
-                header.resource.component[3] = sess->sm_context_ref;
+                header.resource.component[3] = sess->sm_context.ref;
 
                 sendmsg.http.location = ogs_sbi_server_uri(server, &header);
 
@@ -1174,7 +1174,7 @@ static OpenAPI_list_t *amf_namf_comm_encode_ue_session_context_list(amf_ue_t *am
         ogs_assert(sNSSAI);
 
         PduSessionContext->pdu_session_id = sess->psi;
-        PduSessionContext->sm_context_ref = sess->sm_context_ref;
+        PduSessionContext->sm_context_ref = sess->sm_context.ref;
 
         sNSSAI->sst = sess->s_nssai.sst;
         sNSSAI->sd = ogs_s_nssai_sd_to_string(sess->s_nssai.sd);

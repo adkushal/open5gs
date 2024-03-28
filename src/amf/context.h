@@ -499,18 +499,24 @@ typedef struct amf_sess_s {
     uint8_t pti;            /* Procedure Trasaction Identity */
 
 #define SESSION_CONTEXT_IN_SMF(__sESS)  \
-    ((__sESS) && (__sESS)->sm_context_ref)
-#define CLEAR_SM_CONTEXT_REF(__sESS) \
+    ((__sESS) && (__sESS)->sm_context.ref && (__sESS)->sm_context.uri)
+#define CLEAR_SESSION_CONTEXT(__sESS) \
     do { \
         ogs_assert(__sESS); \
-        ogs_assert((__sESS)->sm_context_ref); \
-        ogs_free((__sESS)->sm_context_ref); \
-        (__sESS)->sm_context_ref = NULL; \
+        ogs_assert((__sESS)->sm_context.ref); \
+        ogs_free((__sESS)->sm_context.ref); \
+        (__sESS)->sm_context.ref = NULL; \
+        ogs_assert((__sESS)->sm_context.uri); \
+        ogs_free((__sESS)->sm_context.uri); \
+        (__sESS)->sm_context.uri = NULL; \
     } while(0);
 
     /* SMF sends the RESPONSE
      * of [POST] /nsmf-pdusession/v1/sm-contexts */
-    char *sm_context_ref;
+    struct {
+        char *ref;
+        char *uri;
+    } sm_context;
     bool pdu_session_release_complete_received;
     bool pdu_session_resource_release_response_received;
 

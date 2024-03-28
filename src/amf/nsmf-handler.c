@@ -128,10 +128,14 @@ int amf_nsmf_pdusession_handle_create_sm_context(
             }
         }
 
-        if (sess->sm_context_ref)
-            ogs_free(sess->sm_context_ref);
-        sess->sm_context_ref = ogs_strdup(message.h.resource.component[1]);
-        ogs_assert(sess->sm_context_ref);
+        if (sess->sm_context.ref)
+            ogs_free(sess->sm_context.ref);
+        sess->sm_context.ref = ogs_strdup(message.h.resource.component[1]);
+        ogs_assert(sess->sm_context.ref);
+        if (sess->sm_context.uri)
+            ogs_free(sess->sm_context.uri);
+        sess->sm_context.uri = ogs_strdup(header.uri);
+        ogs_assert(sess->sm_context.uri);
 
         ogs_sbi_header_free(&header);
 
