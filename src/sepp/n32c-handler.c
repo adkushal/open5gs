@@ -40,8 +40,7 @@ bool sepp_n32c_handshake_handle_security_capability_request(
         ogs_assert(true ==
             ogs_sbi_server_send_error(stream,
                 OGS_SBI_HTTP_STATUS_BAD_REQUEST,
-                recvmsg, "No SecNegotiateReqData", sepp_node->receiver,
-                NULL));
+                recvmsg, "No SecNegotiateReqData", sepp_node->receiver));
         return false;
     }
 
@@ -50,8 +49,7 @@ bool sepp_n32c_handshake_handle_security_capability_request(
         ogs_assert(true ==
             ogs_sbi_server_send_error(stream,
                 OGS_SBI_HTTP_STATUS_BAD_REQUEST,
-                recvmsg, "No SecNegotiateReqData.sender", sepp_node->receiver,
-                NULL));
+                recvmsg, "No SecNegotiateReqData.sender", sepp_node->receiver));
         return false;
     }
 
@@ -68,7 +66,7 @@ bool sepp_n32c_handshake_handle_security_capability_request(
             ogs_sbi_server_send_error(stream,
                 OGS_SBI_HTTP_STATUS_BAD_REQUEST,
                 recvmsg, "No supported_sec_capability_list",
-                sepp_node->receiver, NULL));
+                sepp_node->receiver));
         return false;
     }
 
@@ -106,7 +104,7 @@ bool sepp_n32c_handshake_handle_security_capability_request(
             ogs_sbi_server_send_error(stream,
                 OGS_SBI_HTTP_STATUS_BAD_REQUEST,
                 recvmsg, "Unknown SupportedSecCapability",
-                sepp_node->receiver, NULL));
+                sepp_node->receiver));
         return false;
     }
 

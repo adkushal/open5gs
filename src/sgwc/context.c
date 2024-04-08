@@ -632,8 +632,7 @@ sgwc_tunnel_t *sgwc_tunnel_add(
     ogs_pfcp_pdr_t *pdr = NULL;
     ogs_pfcp_far_t *far = NULL;
 
-    uint8_t src_if = OGS_PFCP_INTERFACE_UNKNOWN;
-    uint8_t dst_if = OGS_PFCP_INTERFACE_UNKNOWN;
+    uint8_t src_if, dst_if;
 
     ogs_assert(bearer);
     sess = bearer->sess;
@@ -716,7 +715,7 @@ sgwc_tunnel_t *sgwc_tunnel_add(
         ogs_gtpu_resource_t *resource = NULL;
         resource = ogs_pfcp_find_gtpu_resource(
                 &sess->pfcp_node->gtpu_resource_list,
-                sess->session.name, pdr->src_if);
+                sess->session.name, OGS_PFCP_INTERFACE_ACCESS);
         if (resource) {
             ogs_user_plane_ip_resource_info_to_sockaddr(&resource->info,
                 &tunnel->local_addr, &tunnel->local_addr6);

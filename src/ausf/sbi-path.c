@@ -96,7 +96,7 @@ int ausf_sbi_discover_and_send(
         ogs_assert(true ==
             ogs_sbi_server_send_error(stream,
                 OGS_SBI_HTTP_STATUS_GATEWAY_TIMEOUT, NULL,
-                "Cannot discover", ausf_ue->suci, NULL));
+                "Cannot discover", ausf_ue->suci));
         return OGS_ERROR;
     }
 
@@ -109,7 +109,7 @@ int ausf_sbi_discover_and_send(
         ogs_assert(true ==
             ogs_sbi_server_send_error(stream,
                 OGS_SBI_HTTP_STATUS_GATEWAY_TIMEOUT, NULL,
-                "Cannot discover", ausf_ue->suci, NULL));
+                "Cannot discover", ausf_ue->suci));
         return r;
     }
     

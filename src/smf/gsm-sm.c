@@ -1,6 +1,5 @@
 /*
  * Copyright (C) 2019-2023 by Sukchan Lee <acetcom@gmail.com>
-
  *
  * This file is part of Open5GS.
  *
@@ -182,10 +181,8 @@ void smf_gsm_state_initial(ogs_fsm_t *s, smf_event_t *e)
     switch (e->h.id) {
     case OGS_FSM_ENTRY_SIG:
         /* reset state: */
-        sess->sm_data.s6b_aar_in_flight = false;
         sess->sm_data.gx_ccr_init_in_flight = false;
         sess->sm_data.gy_ccr_init_in_flight = false;
-        sess->sm_data.s6b_aaa_err = ER_DIAMETER_SUCCESS;
         sess->sm_data.gx_cca_init_err = ER_DIAMETER_SUCCESS;
         sess->sm_data.gy_cca_init_err = ER_DIAMETER_SUCCESS;
         break;
@@ -231,9 +228,7 @@ void smf_gsm_state_initial(ogs_fsm_t *s, smf_event_t *e)
                 break;
             case OGS_GTP2_RAT_TYPE_WLAN:
                 smf_s6b_send_aar(sess, e->gtp_xact);
-                sess->sm_data.s6b_aar_in_flight = true;
                 OGS_FSM_TRAN(s, smf_gsm_state_wait_epc_auth_initial);
-                /* Gx/Gy Init Req is done after s6b AAR + AAA */
                 break;
             default:
                 ogs_error("Unknown RAT Type [%d]", sess->gtp_rat_type);
@@ -263,7 +258,7 @@ void smf_gsm_state_initial(ogs_fsm_t *s, smf_event_t *e)
                     ogs_sbi_server_send_error(stream,
                         OGS_SBI_HTTP_STATUS_BAD_REQUEST, sbi_message,
                         "Invalid resource name [%s]",
-                        sbi_message->h.resource.component[2], NULL));
+                        sbi_message->h.resource.component[2]));
                 OGS_FSM_TRAN(s, smf_gsm_state_exception);
                 break;
             DEFAULT
@@ -280,8 +275,7 @@ void smf_gsm_state_initial(ogs_fsm_t *s, smf_event_t *e)
             ogs_assert(true ==
                 ogs_sbi_server_send_error(stream,
                     OGS_SBI_HTTP_STATUS_BAD_REQUEST, sbi_message,
-                    "Invalid API name", sbi_message->h.service.name,
-                    NULL));
+                    "Invalid API name", sbi_message->h.service.name));
             OGS_FSM_TRAN(s, smf_gsm_state_exception);
         END
         break;
@@ -289,6 +283,8 @@ void smf_gsm_state_initial(ogs_fsm_t *s, smf_event_t *e)
     case SMF_EVT_5GSM_MESSAGE:
         nas_message = e->nas.message;
         ogs_assert(nas_message);
+        sess = e->sess;
+        ogs_assert(sess);
         stream = e->h.sbi.data;
         ogs_assert(stream);
         smf_ue = sess->smf_ue;
@@ -316,8 +312,7 @@ void smf_gsm_state_initial(ogs_fsm_t *s, smf_event_t *e)
             ogs_error("%s", strerror);
             ogs_assert(true ==
                 ogs_sbi_server_send_error(stream,
-                    OGS_SBI_HTTP_STATUS_BAD_REQUEST, NULL, strerror,
-                    NULL, NULL));
+                    OGS_SBI_HTTP_STATUS_BAD_REQUEST, NULL, strerror, NULL));
             ogs_free(strerror);
 
             OGS_FSM_TRAN(s, smf_gsm_state_exception);
@@ -333,11 +328,9 @@ void smf_gsm_state_wait_epc_auth_initial(ogs_fsm_t *s, smf_event_t *e)
 {
     smf_sess_t *sess = NULL;
 
-    ogs_diam_s6b_message_t *s6b_message = NULL;
     ogs_diam_gy_message_t *gy_message = NULL;
     ogs_diam_gx_message_t *gx_message = NULL;
     uint32_t diam_err;
-    bool need_gy_terminate = false;
 
     ogs_assert(s);
     ogs_assert(e);
@@ -348,22 +341,6 @@ void smf_gsm_state_wait_epc_auth_initial(ogs_fsm_t *s, smf_event_t *e)
     ogs_assert(sess);
 
     switch (e->h.id) {
-    case SMF_EVT_S6B_MESSAGE:
-        s6b_message = e->s6b_message;
-        ogs_assert(s6b_message);
-
-        switch(s6b_message->cmd_code) {
-        case OGS_DIAM_S6B_CMD_AUTHENTICATION_AUTHORIZATION:
-            sess->sm_data.s6b_aar_in_flight = false;
-            sess->sm_data.s6b_aaa_err = s6b_message->result_code;
-            if (s6b_message->result_code == ER_DIAMETER_SUCCESS) {
-                send_ccr_init_req_gx_gy(sess, e);
-                return;
-            }
-            goto test_can_proceed;
-        }
-        break;
-
     case SMF_EVT_GX_MESSAGE:
         gx_message = e->gx_message;
         ogs_assert(gx_message);
@@ -393,7 +370,7 @@ void smf_gsm_state_wait_epc_auth_initial(ogs_fsm_t *s, smf_event_t *e)
             case OGS_DIAM_GY_CC_REQUEST_TYPE_INITIAL_REQUEST:
                 ogs_assert(e->gtp_xact);
                 diam_err = smf_gy_handle_cca_initial_request(sess,
-                                gy_message, e->gtp_xact, &need_gy_terminate);
+                                gy_message, e->gtp_xact);
                 sess->sm_data.gy_ccr_init_in_flight = false;
                 sess->sm_data.gy_cca_init_err = diam_err;
                 goto test_can_proceed;
@@ -406,12 +383,9 @@ void smf_gsm_state_wait_epc_auth_initial(ogs_fsm_t *s, smf_event_t *e)
 
 test_can_proceed:
     /* First wait for both Gx and Gy requests to be done: */
-    if (!sess->sm_data.s6b_aar_in_flight &&
-        !sess->sm_data.gx_ccr_init_in_flight &&
+    if (!sess->sm_data.gx_ccr_init_in_flight &&
         !sess->sm_data.gy_ccr_init_in_flight) {
         diam_err = ER_DIAMETER_SUCCESS;
-        if (sess->sm_data.s6b_aaa_err != ER_DIAMETER_SUCCESS)
-            diam_err = sess->sm_data.s6b_aaa_err;
         if (sess->sm_data.gx_cca_init_err != ER_DIAMETER_SUCCESS)
             diam_err = sess->sm_data.gx_cca_init_err;
         if (sess->sm_data.gy_cca_init_err != ER_DIAMETER_SUCCESS)
@@ -423,16 +397,8 @@ test_can_proceed:
                 smf_epc_pfcp_send_session_establishment_request(
                     sess, e->gtp_xact, 0));
         } else {
-            /* Tear down Gx/Gy session if its sm_data.*init_err == ER_DIAMETER_SUCCESS */
-            if (sess->sm_data.gx_cca_init_err == ER_DIAMETER_SUCCESS) {
-                sess->sm_data.gx_ccr_term_in_flight = true;
-                smf_gx_send_ccr(sess, e->gtp_xact, OGS_DIAM_GX_CC_REQUEST_TYPE_TERMINATION_REQUEST);
-            }
-            if (smf_use_gy_iface() == 1 &&
-                (sess->sm_data.gy_cca_init_err == ER_DIAMETER_SUCCESS || need_gy_terminate)) {
-                sess->sm_data.gy_ccr_term_in_flight = true;
-                smf_gy_send_ccr(sess, e->gtp_xact, OGS_DIAM_GY_CC_REQUEST_TYPE_TERMINATION_REQUEST);
-            }
+            /* FIXME: tear down Gx/Gy session
+             * if its sm_data.*init_err == ER_DIAMETER_SUCCESS */
             uint8_t gtp_cause = gtp_cause_from_diameter(
                                     e->gtp_xact->gtp_version, diam_err, NULL);
             send_gtp_create_err_msg(sess, e->gtp_xact, gtp_cause);
@@ -469,6 +435,8 @@ void smf_gsm_state_wait_5gc_sm_policy_association(ogs_fsm_t *s, smf_event_t *e)
         sbi_message = e->h.sbi.message;
         ogs_assert(sbi_message);
 
+        sess = e->sess;
+        ogs_assert(sess);
         smf_ue = sess->smf_ue;
         ogs_assert(smf_ue);
 
@@ -488,8 +456,7 @@ void smf_gsm_state_wait_5gc_sm_policy_association(ogs_fsm_t *s, smf_event_t *e)
                     ogs_assert(true ==
                         ogs_sbi_server_send_error(
                             stream, sbi_message->res_status,
-                            sbi_message, strerror, NULL,
-                            sbi_message->ProblemDetails->cause));
+                            sbi_message, strerror, NULL));
                     ogs_free(strerror);
 
                     OGS_FSM_TRAN(s, smf_gsm_state_exception);
@@ -513,7 +480,7 @@ void smf_gsm_state_wait_5gc_sm_policy_association(ogs_fsm_t *s, smf_event_t *e)
                 ogs_assert(true ==
                     ogs_sbi_server_send_error(stream,
                         OGS_SBI_HTTP_STATUS_BAD_REQUEST,
-                        sbi_message, strerror, NULL, NULL));
+                        sbi_message, strerror, NULL));
                 ogs_free(strerror);
 
                 OGS_FSM_TRAN(s, smf_gsm_state_exception);
@@ -728,9 +695,6 @@ void smf_gsm_state_operational(ogs_fsm_t *s, smf_event_t *e)
     ogs_pfcp_xact_t *pfcp_xact = NULL;
     ogs_pfcp_message_t *pfcp_message = NULL;
 
-    ogs_diam_gy_message_t *gy_message = NULL;
-    uint32_t diam_err;
-
     ogs_nas_5gs_message_t *nas_message = NULL;
 
     ogs_sbi_stream_t *stream = NULL;
@@ -844,24 +808,6 @@ void smf_gsm_state_operational(ogs_fsm_t *s, smf_event_t *e)
         }
         break;
 
-    case SMF_EVT_GY_MESSAGE:
-        gy_message = e->gy_message;
-        ogs_assert(gy_message);
-
-        switch(gy_message->cmd_code) {
-        case OGS_DIAM_GY_CMD_CODE_CREDIT_CONTROL:
-            switch (gy_message->cc_request_type) {
-            case OGS_DIAM_GY_CC_REQUEST_TYPE_UPDATE_REQUEST:
-                ogs_assert(e->pfcp_xact);
-                diam_err = smf_gy_handle_cca_update_request(sess, gy_message, e->pfcp_xact);
-                if (diam_err != ER_DIAMETER_SUCCESS)
-                    OGS_FSM_TRAN(s, smf_gsm_state_wait_pfcp_deletion);
-                break;
-            }
-            break;
-        }
-        break;
-
     case OGS_EVENT_SBI_SERVER:
         sbi_message = e->h.sbi.message;
         ogs_assert(sbi_message);
@@ -884,7 +830,7 @@ void smf_gsm_state_operational(ogs_fsm_t *s, smf_event_t *e)
                     ogs_sbi_server_send_error(stream,
                         OGS_SBI_HTTP_STATUS_BAD_REQUEST, sbi_message,
                         "Invalid resource name [%s]",
-                        sbi_message->h.resource.component[2], NULL));
+                        sbi_message->h.resource.component[2]));
                 OGS_FSM_TRAN(s, smf_gsm_state_exception);
             END
             break;
@@ -894,8 +840,7 @@ void smf_gsm_state_operational(ogs_fsm_t *s, smf_event_t *e)
             ogs_assert(true ==
                 ogs_sbi_server_send_error(stream,
                     OGS_SBI_HTTP_STATUS_BAD_REQUEST, sbi_message,
-                    "Invalid API name", sbi_message->h.service.name,
-                    NULL));
+                    "Invalid API name", sbi_message->h.service.name));
             OGS_FSM_TRAN(s, smf_gsm_state_exception);
         END
         break;
@@ -904,6 +849,8 @@ void smf_gsm_state_operational(ogs_fsm_t *s, smf_event_t *e)
         sbi_message = e->h.sbi.message;
         ogs_assert(sbi_message);
 
+        sess = e->sess;
+        ogs_assert(sess);
         smf_ue = sess->smf_ue;
         ogs_assert(smf_ue);
 
@@ -926,8 +873,7 @@ void smf_gsm_state_operational(ogs_fsm_t *s, smf_event_t *e)
                     ogs_assert(true ==
                         ogs_sbi_server_send_error(
                             stream, sbi_message->res_status,
-                            sbi_message, strerror, NULL,
-                            sbi_message->ProblemDetails->cause));
+                            sbi_message, strerror, NULL));
                     ogs_free(strerror);
 
                     OGS_FSM_TRAN(s, smf_gsm_state_exception);
@@ -1007,7 +953,7 @@ void smf_gsm_state_operational(ogs_fsm_t *s, smf_event_t *e)
                             ogs_assert(true ==
                                 ogs_sbi_server_send_error(stream,
                                     OGS_SBI_HTTP_STATUS_BAD_REQUEST,
-                                    sbi_message, strerror, NULL, NULL));
+                                    sbi_message, strerror, NULL));
                         ogs_free(strerror);
                         OGS_FSM_TRAN(s, smf_gsm_state_exception);
                     END
@@ -1024,7 +970,7 @@ void smf_gsm_state_operational(ogs_fsm_t *s, smf_event_t *e)
                 ogs_assert(true ==
                     ogs_sbi_server_send_error(stream,
                         OGS_SBI_HTTP_STATUS_BAD_REQUEST,
-                        sbi_message, strerror, NULL, NULL));
+                        sbi_message, strerror, NULL));
                 ogs_free(strerror);
                 OGS_FSM_TRAN(s, smf_gsm_state_exception);
             END
@@ -1055,6 +1001,8 @@ void smf_gsm_state_operational(ogs_fsm_t *s, smf_event_t *e)
     case SMF_EVT_5GSM_MESSAGE:
         nas_message = e->nas.message;
         ogs_assert(nas_message);
+        sess = e->sess;
+        ogs_assert(sess);
         stream = e->h.sbi.data;
         ogs_assert(stream);
         smf_ue = sess->smf_ue;
@@ -1114,13 +1062,14 @@ void smf_gsm_state_operational(ogs_fsm_t *s, smf_event_t *e)
             ogs_error("%s", strerror);
             ogs_assert(true ==
                 ogs_sbi_server_send_error(stream,
-                    OGS_SBI_HTTP_STATUS_BAD_REQUEST, NULL, strerror,
-                    NULL, NULL));
+                    OGS_SBI_HTTP_STATUS_BAD_REQUEST, NULL, strerror, NULL));
             ogs_free(strerror);
         }
         break;
 
     case SMF_EVT_NGAP_MESSAGE:
+        sess = e->sess;
+        ogs_assert(sess);
         stream = e->h.sbi.data;
         ogs_assert(stream);
         smf_ue = sess->smf_ue;
@@ -1172,8 +1121,7 @@ void smf_gsm_state_operational(ogs_fsm_t *s, smf_event_t *e)
                 ogs_error("%s", strerror);
                 ogs_assert(true ==
                     ogs_sbi_server_send_error(stream,
-                        OGS_SBI_HTTP_STATUS_BAD_REQUEST, NULL, strerror,
-                        NULL, NULL));
+                        OGS_SBI_HTTP_STATUS_BAD_REQUEST, NULL, strerror, NULL));
                 ogs_free(strerror);
 
                 OGS_FSM_TRAN(s, smf_gsm_state_exception);
@@ -1252,11 +1200,9 @@ void smf_gsm_state_wait_pfcp_deletion(ogs_fsm_t *s, smf_event_t *e)
 {
     int status;
 
-    smf_ue_t *smf_ue = NULL;
     smf_sess_t *sess = NULL;
 
     ogs_sbi_stream_t *stream = NULL;
-    ogs_sbi_message_t *sbi_message = NULL;
 
     ogs_pfcp_xact_t *pfcp_xact = NULL;
     ogs_pfcp_message_t *pfcp_message = NULL;
@@ -1410,39 +1356,6 @@ void smf_gsm_state_wait_pfcp_deletion(ogs_fsm_t *s, smf_event_t *e)
             ogs_error("cannot handle PFCP message type[%d]",
                     pfcp_message->h.type);
         }
-        break;
-    case OGS_EVENT_SBI_CLIENT:
-        sbi_message = e->h.sbi.message;
-        ogs_assert(sbi_message);
-
-        smf_ue = sess->smf_ue;
-        ogs_assert(smf_ue);
-
-        SWITCH(sbi_message->h.service.name)
-        CASE(OGS_SBI_SERVICE_NAME_NPCF_SMPOLICYCONTROL)
-            ogs_pkbuf_t *n1smbuf = NULL;
-
-            stream = e->h.sbi.data;
-            ogs_assert(stream);
-
-            ogs_error("[%s:%d] state [%d] res_status [%d]",
-                smf_ue->supi, sess->psi,
-                e->h.sbi.state, sbi_message->res_status);
-
-            n1smbuf = gsm_build_pdu_session_release_reject(sess,
-                OGS_5GSM_CAUSE_MESSAGE_NOT_COMPATIBLE_WITH_THE_PROTOCOL_STATE);
-            ogs_assert(n1smbuf);
-
-            smf_sbi_send_sm_context_update_error_n1_n2_message(
-                    stream, OGS_SBI_HTTP_STATUS_BAD_REQUEST,
-                    n1smbuf, OpenAPI_n2_sm_info_type_NULL, NULL);
-            break;
-        DEFAULT
-            ogs_error("[%s:%d] Invalid API name [%s]",
-                    smf_ue->supi, sess->psi, sbi_message->h.service.name);
-            ogs_assert_if_reached();
-        END
-        break;
     }
 }
 
@@ -1502,6 +1415,7 @@ void smf_gsm_state_wait_epc_auth_release(ogs_fsm_t *s, smf_event_t *e)
         case OGS_DIAM_GY_CMD_CODE_CREDIT_CONTROL:
             switch(gy_message->cc_request_type) {
             case OGS_DIAM_GY_CC_REQUEST_TYPE_TERMINATION_REQUEST:
+                ogs_assert(e->gtp_xact);
                 diam_err = smf_gy_handle_cca_termination_request(sess,
                                 gy_message, e->gtp_xact);
                 sess->sm_data.gy_ccr_term_in_flight = false;
@@ -1617,7 +1531,7 @@ void smf_gsm_state_wait_5gc_n1_n2_release(ogs_fsm_t *s, smf_event_t *e)
                     ogs_sbi_server_send_error(stream,
                         OGS_SBI_HTTP_STATUS_BAD_REQUEST, sbi_message,
                         "Invalid resource name [%s]",
-                        sbi_message->h.resource.component[2], NULL));
+                        sbi_message->h.resource.component[2]));
                 OGS_FSM_TRAN(s, smf_gsm_state_exception);
             END
             break;
@@ -1627,8 +1541,7 @@ void smf_gsm_state_wait_5gc_n1_n2_release(ogs_fsm_t *s, smf_event_t *e)
             ogs_assert(true ==
                 ogs_sbi_server_send_error(stream,
                     OGS_SBI_HTTP_STATUS_BAD_REQUEST, sbi_message,
-                    "Invalid API name", sbi_message->h.service.name,
-                    NULL));
+                    "Invalid API name", sbi_message->h.service.name));
             OGS_FSM_TRAN(s, smf_gsm_state_exception);
         END
         break;
@@ -1637,6 +1550,8 @@ void smf_gsm_state_wait_5gc_n1_n2_release(ogs_fsm_t *s, smf_event_t *e)
         sbi_message = e->h.sbi.message;
         ogs_assert(sbi_message);
 
+        sess = e->sess;
+        ogs_assert(sess);
         smf_ue = sess->smf_ue;
         ogs_assert(smf_ue);
 
@@ -1659,24 +1574,6 @@ void smf_gsm_state_wait_5gc_n1_n2_release(ogs_fsm_t *s, smf_event_t *e)
             END
             break;
 
-        CASE(OGS_SBI_SERVICE_NAME_NPCF_SMPOLICYCONTROL)
-            ogs_pkbuf_t *n1smbuf = NULL;
-
-            stream = e->h.sbi.data;
-            ogs_assert(stream);
-
-            ogs_error("[%s:%d] state [%d] res_status [%d]",
-                smf_ue->supi, sess->psi,
-                e->h.sbi.state, sbi_message->res_status);
-
-            n1smbuf = gsm_build_pdu_session_release_reject(sess,
-                OGS_5GSM_CAUSE_MESSAGE_NOT_COMPATIBLE_WITH_THE_PROTOCOL_STATE);
-            ogs_assert(n1smbuf);
-
-            smf_sbi_send_sm_context_update_error_n1_n2_message(
-                    stream, OGS_SBI_HTTP_STATUS_BAD_REQUEST,
-                    n1smbuf, OpenAPI_n2_sm_info_type_NULL, NULL);
-            break;
         DEFAULT
             ogs_error("[%s:%d] Invalid API name [%s]",
                     smf_ue->supi, sess->psi, sbi_message->h.service.name);
@@ -1685,6 +1582,8 @@ void smf_gsm_state_wait_5gc_n1_n2_release(ogs_fsm_t *s, smf_event_t *e)
         break;
 
     case SMF_EVT_NGAP_MESSAGE:
+        sess = e->sess;
+        ogs_assert(sess);
         stream = e->h.sbi.data;
         ogs_assert(stream);
         smf_ue = sess->smf_ue;
@@ -1721,8 +1620,7 @@ void smf_gsm_state_wait_5gc_n1_n2_release(ogs_fsm_t *s, smf_event_t *e)
                 ogs_error("%s", strerror);
                 ogs_assert(true ==
                     ogs_sbi_server_send_error(stream,
-                        OGS_SBI_HTTP_STATUS_BAD_REQUEST, NULL, strerror,
-                        NULL, NULL));
+                        OGS_SBI_HTTP_STATUS_BAD_REQUEST, NULL, strerror, NULL));
                 ogs_free(strerror);
 
                 OGS_FSM_TRAN(s, smf_gsm_state_exception);
@@ -1759,6 +1657,8 @@ void smf_gsm_state_wait_5gc_n1_n2_release(ogs_fsm_t *s, smf_event_t *e)
     case SMF_EVT_5GSM_MESSAGE:
         nas_message = e->nas.message;
         ogs_assert(nas_message);
+        sess = e->sess;
+        ogs_assert(sess);
         stream = e->h.sbi.data;
         ogs_assert(stream);
         smf_ue = sess->smf_ue;
@@ -1789,8 +1689,7 @@ void smf_gsm_state_wait_5gc_n1_n2_release(ogs_fsm_t *s, smf_event_t *e)
             ogs_error("%s", strerror);
             ogs_assert(true ==
                 ogs_sbi_server_send_error(stream,
-                    OGS_SBI_HTTP_STATUS_BAD_REQUEST, NULL, strerror,
-                    NULL, NULL));
+                    OGS_SBI_HTTP_STATUS_BAD_REQUEST, NULL, strerror, NULL));
             ogs_free(strerror);
         }
         break;
@@ -1839,6 +1738,8 @@ void smf_gsm_state_5gc_n1_n2_reject(ogs_fsm_t *s, smf_event_t *e)
         sbi_message = e->h.sbi.message;
         ogs_assert(sbi_message);
 
+        sess = e->sess;
+        ogs_assert(sess);
         smf_ue = sess->smf_ue;
         ogs_assert(smf_ue);
 
@@ -1917,60 +1818,16 @@ void smf_gsm_state_5gc_n1_n2_reject(ogs_fsm_t *s, smf_event_t *e)
 
 void smf_gsm_state_5gc_session_will_deregister(ogs_fsm_t *s, smf_event_t *e)
 {
-    smf_sess_t *sess = NULL;
-
-    ogs_sbi_stream_t *stream = NULL;
-    ogs_sbi_message_t *sbi_message = NULL;
-
     ogs_assert(s);
     ogs_assert(e);
 
     smf_sm_debug(e);
-
-    sess = e->sess;
-    ogs_assert(sess);
 
     switch (e->h.id) {
     case OGS_FSM_ENTRY_SIG:
         break;
 
     case OGS_FSM_EXIT_SIG:
-        break;
-
-    case OGS_EVENT_SBI_SERVER:
-        sbi_message = e->h.sbi.message;
-        ogs_assert(sbi_message);
-        stream = e->h.sbi.data;
-        ogs_assert(stream);
-
-        SWITCH(sbi_message->h.service.name)
-        CASE(OGS_SBI_SERVICE_NAME_NSMF_PDUSESSION)
-            SWITCH(sbi_message->h.resource.component[2])
-            CASE(OGS_SBI_RESOURCE_NAME_RELEASE)
-                ogs_assert(true == ogs_sbi_send_response(
-                            stream, OGS_SBI_HTTP_STATUS_TOO_MANY_REQUESTS));
-                break;
-            DEFAULT
-                ogs_error("Invalid resource name [%s]",
-                            sbi_message->h.resource.component[2]);
-                ogs_assert(true ==
-                    ogs_sbi_server_send_error(stream,
-                        OGS_SBI_HTTP_STATUS_BAD_REQUEST, sbi_message,
-                        "Invalid resource name [%s]",
-                        sbi_message->h.resource.component[2], NULL));
-                OGS_FSM_TRAN(s, smf_gsm_state_exception);
-            END
-            break;
-
-        DEFAULT
-            ogs_error("Invalid API name [%s]", sbi_message->h.service.name);
-            ogs_assert(true ==
-                ogs_sbi_server_send_error(stream,
-                    OGS_SBI_HTTP_STATUS_BAD_REQUEST, sbi_message,
-                    "Invalid API name", sbi_message->h.service.name,
-                    NULL));
-            OGS_FSM_TRAN(s, smf_gsm_state_exception);
-        END
         break;
 
     default:

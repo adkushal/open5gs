@@ -25,7 +25,7 @@ static int response_handler(
 
 static void copy_request(
         ogs_sbi_request_t *target, ogs_sbi_request_t *source,
-        bool do_not_remove_custom_header);
+        bool include_discovery);
 
 int sepp_sbi_open(void)
 {
@@ -422,7 +422,7 @@ static int response_handler(
         ogs_assert(true ==
             ogs_sbi_server_send_error(stream,
                 OGS_SBI_HTTP_STATUS_INTERNAL_SERVER_ERROR, NULL,
-                "response_handler() failed", NULL, NULL));
+                "response_handler() failed", NULL));
 
         sepp_assoc_remove(assoc);
 

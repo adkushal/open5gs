@@ -65,7 +65,7 @@ static void gtp_bearer_timeout(ogs_gtp_xact_t *xact, void *data)
 /*
  * Issue #338
  *
- * <DOWNLINK/BI-DIRECTIONAL>
+ * <DOWNLINK>
  * RULE : Source <P-CSCF_RTP_IP> <P-CSCF_RTP_PORT> Destination <UE_IP> <UE_PORT>
  * TFT : Local <UE_IP> <UE_PORT> REMOTE <P-CSCF_RTP_IP> <P-CSCF_RTP_PORT>
  *
@@ -190,7 +190,7 @@ void smf_bearer_binding(smf_sess_t *sess)
                     ogs_gtpu_resource_t *resource = NULL;
                     resource = ogs_pfcp_find_gtpu_resource(
                             &sess->pfcp_node->gtpu_resource_list,
-                            sess->session.name, ul_pdr->src_if);
+                            sess->session.name, OGS_PFCP_INTERFACE_ACCESS);
                     if (resource) {
                         ogs_user_plane_ip_resource_info_to_sockaddr(
                                 &resource->info,
@@ -303,7 +303,7 @@ void smf_bearer_binding(smf_sess_t *sess)
  * Refer to lib/ipfw/ogs-ipfw.h
  * Issue #338
  *
- * <DOWNLINK/BI-DIRECTIONAL>
+ * <DOWNLINK>
  * GX : permit out from <P-CSCF_RTP_IP> <P-CSCF_RTP_PORT> to <UE_IP> <UE_PORT>
  * -->
  * RULE : Source <P-CSCF_RTP_IP> <P-CSCF_RTP_PORT> Destination <UE_IP> <UE_PORT>
@@ -632,7 +632,7 @@ void smf_qos_flow_binding(smf_sess_t *sess)
  * Refer to lib/ipfw/ogs-ipfw.h
  * Issue #338
  *
- * <DOWNLINK/BI-DIRECTIONAL>
+ * <DOWNLINK>
  * GX : permit out from <P-CSCF_RTP_IP> <P-CSCF_RTP_PORT> to <UE_IP> <UE_PORT>
  * -->
  * RULE : Source <P-CSCF_RTP_IP> <P-CSCF_RTP_PORT> Destination <UE_IP> <UE_PORT>

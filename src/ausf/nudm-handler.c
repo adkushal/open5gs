@@ -63,8 +63,7 @@ bool ausf_nudm_ueau_handle_get(ausf_ue_t *ausf_ue,
         ogs_assert(true ==
             ogs_sbi_server_send_error(stream,
                 OGS_SBI_HTTP_STATUS_BAD_REQUEST,
-                recvmsg, "No AuthenticationInfoResult", ausf_ue->suci,
-                NULL));
+                recvmsg, "No AuthenticationInfoResult", ausf_ue->suci));
         return false;
     }
 
@@ -76,8 +75,7 @@ bool ausf_nudm_ueau_handle_get(ausf_ue_t *ausf_ue,
         ogs_assert(true ==
             ogs_sbi_server_send_error(stream,
                 OGS_SBI_HTTP_STATUS_NOT_IMPLEMENTED,
-                recvmsg, "Not supported Auth Method", ausf_ue->suci,
-                NULL));
+                recvmsg, "Not supported Auth Method", ausf_ue->suci));
         return false;
     }
 
@@ -88,32 +86,17 @@ bool ausf_nudm_ueau_handle_get(ausf_ue_t *ausf_ue,
         ogs_assert(true ==
             ogs_sbi_server_send_error(stream,
                 OGS_SBI_HTTP_STATUS_BAD_REQUEST,
-                recvmsg, "No AuthenticationVector", ausf_ue->suci, NULL));
+                recvmsg, "No AuthenticationVector", ausf_ue->suci));
         return false;
     }
 
     if (AuthenticationVector->av_type != OpenAPI_av_type_5G_HE_AKA) {
         ogs_error("[%s] Not supported Auth Method [%d]",
             ausf_ue->suci, AuthenticationVector->av_type);
-        /*
-         * TS29.509
-         * 5.2.2.2.2 5G AKA 
-         *
-         * On failure or redirection, one of the HTTP status code
-         * listed in table 6.1.7.3-1 shall be returned with the message
-         * body containing a ProblemDetails structure with the "cause"
-         * attribute set to one of the application error listed in
-         * Table 6.1.7.3-1.
-         * Application Error: AUTHENTICATION_REJECTED
-         * HTTP status code: 403 Forbidden 
-         * Description: The user cannot be authenticated with this
-         * authentication method e.g. only SIM data available 
-         */
         ogs_assert(true ==
             ogs_sbi_server_send_error(stream,
                 OGS_SBI_HTTP_STATUS_FORBIDDEN,
-                recvmsg, "Not supported Auth Method", ausf_ue->suci,
-                "AUTHENTICATION_REJECTED"));
+                recvmsg, "Not supported Auth Method", ausf_ue->suci));
         return false;
     }
 
@@ -122,8 +105,7 @@ bool ausf_nudm_ueau_handle_get(ausf_ue_t *ausf_ue,
         ogs_assert(true ==
             ogs_sbi_server_send_error(stream,
                 OGS_SBI_HTTP_STATUS_BAD_REQUEST,
-                recvmsg, "No AuthenticationVector.rand", ausf_ue->suci,
-                NULL));
+                recvmsg, "No AuthenticationVector.rand", ausf_ue->suci));
         return false;
     }
 
@@ -133,8 +115,7 @@ bool ausf_nudm_ueau_handle_get(ausf_ue_t *ausf_ue,
         ogs_assert(true ==
             ogs_sbi_server_send_error(stream,
                 OGS_SBI_HTTP_STATUS_BAD_REQUEST,
-                recvmsg, "No AuthenticationVector.xresStar", ausf_ue->suci,
-                NULL));
+                recvmsg, "No AuthenticationVector.xresStar", ausf_ue->suci));
         return false;
     }
 
@@ -143,8 +124,7 @@ bool ausf_nudm_ueau_handle_get(ausf_ue_t *ausf_ue,
         ogs_assert(true ==
             ogs_sbi_server_send_error(stream,
                 OGS_SBI_HTTP_STATUS_BAD_REQUEST,
-                recvmsg, "No AuthenticationVector.autn", ausf_ue->suci,
-                NULL));
+                recvmsg, "No AuthenticationVector.autn", ausf_ue->suci));
         return false;
     }
 
@@ -153,8 +133,7 @@ bool ausf_nudm_ueau_handle_get(ausf_ue_t *ausf_ue,
         ogs_assert(true ==
             ogs_sbi_server_send_error(stream,
                 OGS_SBI_HTTP_STATUS_BAD_REQUEST,
-                recvmsg, "No AuthenticationVector.kausf", ausf_ue->suci,
-                NULL));
+                recvmsg, "No AuthenticationVector.kausf", ausf_ue->suci));
         return false;
     }
 
@@ -163,8 +142,7 @@ bool ausf_nudm_ueau_handle_get(ausf_ue_t *ausf_ue,
         ogs_assert(true ==
             ogs_sbi_server_send_error(stream,
                 OGS_SBI_HTTP_STATUS_BAD_REQUEST,
-                recvmsg, "No AuthenticationVector.supi", ausf_ue->suci,
-                NULL));
+                recvmsg, "No AuthenticationVector.supi", ausf_ue->suci));
         return false;
     }
 
@@ -296,7 +274,7 @@ bool ausf_nudm_ueau_handle_result_confirmation_inform(ausf_ue_t *ausf_ue,
         ogs_error("[%s] No AuthEvent", ausf_ue->suci);
         ogs_assert(true ==
             ogs_sbi_server_send_error(stream, OGS_SBI_HTTP_STATUS_BAD_REQUEST,
-                    recvmsg, "No AuthEvent", ausf_ue->suci, NULL));
+                    recvmsg, "No AuthEvent", ausf_ue->suci));
         return false;
     }
 
@@ -304,7 +282,7 @@ bool ausf_nudm_ueau_handle_result_confirmation_inform(ausf_ue_t *ausf_ue,
         ogs_error("[%s] No Location", ausf_ue->suci);
         ogs_assert(true ==
             ogs_sbi_server_send_error(stream, OGS_SBI_HTTP_STATUS_BAD_REQUEST,
-                    recvmsg, "No Location", ausf_ue->suci, NULL));
+                    recvmsg, "No Location", ausf_ue->suci));
         return false;
     }
 

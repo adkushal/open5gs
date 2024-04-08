@@ -74,7 +74,7 @@ void nssf_state_operational(ogs_fsm_t *s, nssf_event_t *e)
             ogs_assert(true ==
                 ogs_sbi_server_send_error(
                     stream, OGS_SBI_HTTP_STATUS_BAD_REQUEST,
-                    NULL, "cannot parse HTTP message", NULL, NULL));
+                    NULL, "cannot parse HTTP message", NULL));
             break;
         }
 
@@ -91,7 +91,7 @@ void nssf_state_operational(ogs_fsm_t *s, nssf_event_t *e)
             ogs_assert(true ==
                 ogs_sbi_server_send_error(
                     stream, OGS_SBI_HTTP_STATUS_BAD_REQUEST,
-                    &message, "Not supported version", NULL, NULL));
+                    &message, "Not supported version", NULL));
             ogs_sbi_message_free(&message);
             break;
         }
@@ -111,8 +111,7 @@ void nssf_state_operational(ogs_fsm_t *s, nssf_event_t *e)
                     ogs_assert(true ==
                         ogs_sbi_server_send_error(stream,
                             OGS_SBI_HTTP_STATUS_FORBIDDEN,
-                            &message, "Invalid HTTP method", message.h.method,
-                            NULL));
+                            &message, "Invalid HTTP method", message.h.method));
                 END
                 break;
 
@@ -123,7 +122,7 @@ void nssf_state_operational(ogs_fsm_t *s, nssf_event_t *e)
                     ogs_sbi_server_send_error(stream,
                         OGS_SBI_HTTP_STATUS_BAD_REQUEST, &message,
                         "Unknown resource name",
-                        message.h.resource.component[0], NULL));
+                        message.h.resource.component[0]));
             END
             break;
 
@@ -132,8 +131,7 @@ void nssf_state_operational(ogs_fsm_t *s, nssf_event_t *e)
             ogs_assert(true ==
                 ogs_sbi_server_send_error(stream,
                     OGS_SBI_HTTP_STATUS_BAD_REQUEST, &message,
-                    "Invalid API name", message.h.resource.component[0],
-                    NULL));
+                    "Invalid API name", message.h.resource.component[0]));
         END
 
         /* In lib/sbi/server.c, notify_completed() releases 'request' buffer. */

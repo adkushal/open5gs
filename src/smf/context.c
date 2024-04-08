@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2024 by Sukchan Lee <acetcom@gmail.com>
+ * Copyright (C) 2019-2023 by Sukchan Lee <acetcom@gmail.com>
  *
  * This file is part of Open5GS.
  *
@@ -1548,15 +1548,10 @@ uint8_t smf_sess_set_ue_ip(smf_sess_t *sess)
         subnet = ogs_pfcp_find_subnet_by_dnn(AF_INET, sess->session.name);
         subnet6 = ogs_pfcp_find_subnet_by_dnn(AF_INET6, sess->session.name);
 
-        if (subnet != NULL && subnet6 == NULL) {
+        if (subnet != NULL && subnet6 == NULL)
             sess->session.session_type = OGS_PDU_SESSION_TYPE_IPV4;
-            ogs_error("[%s] No IPv6 subnet or set to /63 or /64, "
-                    "only IPv4 assigned", sess->session.name);
-        } else if (subnet == NULL && subnet6 != NULL) {
+        else if (subnet == NULL && subnet6 != NULL)
             sess->session.session_type = OGS_PDU_SESSION_TYPE_IPV6;
-            ogs_error("[%s] No IPv4 subnet or set to /31 or /32, "
-                    "only IPv6 assigned", sess->session.name);
-        }
     }
 
     sess->session.paa.session_type = sess->session.session_type;
@@ -1687,7 +1682,6 @@ void smf_sess_remove(smf_sess_t *sess)
     ogs_fsm_fini(&sess->sm, &e);
 
     OGS_TLV_CLEAR_DATA(&sess->gtp.ue_pco);
-    OGS_TLV_CLEAR_DATA(&sess->gtp.ue_apco);
     OGS_TLV_CLEAR_DATA(&sess->gtp.ue_epco);
     OGS_TLV_CLEAR_DATA(&sess->gtp.user_location_information);
     OGS_TLV_CLEAR_DATA(&sess->gtp.ue_timezone);
@@ -2122,7 +2116,7 @@ void smf_sess_create_indirect_data_forwarding(smf_sess_t *sess)
 
                 resource = ogs_pfcp_find_gtpu_resource(
                         &sess->pfcp_node->gtpu_resource_list,
-                        sess->session.name, pdr->src_if);
+                        sess->session.name, OGS_PFCP_INTERFACE_ACCESS);
 
                 if (resource) {
                     ogs_user_plane_ip_resource_info_to_sockaddr(&resource->info,
@@ -2575,28 +2569,16 @@ void smf_bearer_tft_update(smf_bearer_t *bearer)
 
     ogs_list_for_each(&bearer->pf_list, pf) {
         if (pf->direction == OGS_FLOW_DOWNLINK_ONLY) {
-            dl_pdr->flow[dl_pdr->num_of_flow].fd = 1;
-            dl_pdr->flow[dl_pdr->num_of_flow].description =
+            dl_pdr->flow_description[dl_pdr->num_of_flow++] =
                 pf->flow_description;
-            dl_pdr->num_of_flow++;
+
         } else if (pf->direction == OGS_FLOW_UPLINK_ONLY) {
-            ul_pdr->flow[ul_pdr->num_of_flow].fd = 1;
-            ul_pdr->flow[ul_pdr->num_of_flow].description =
+            ul_pdr->flow_description[ul_pdr->num_of_flow++] =
                 pf->flow_description;
-            ul_pdr->num_of_flow++;
-        } else if (pf->direction == OGS_FLOW_BIDIRECTIONAL) {
-            dl_pdr->flow[dl_pdr->num_of_flow].fd = 1;
-            dl_pdr->flow[dl_pdr->num_of_flow].description =
-                pf->flow_description;
-            dl_pdr->flow[dl_pdr->num_of_flow].bid = 1;
-            dl_pdr->flow[dl_pdr->num_of_flow].sdf_filter_id = pf->sdf_filter_id;
-            dl_pdr->num_of_flow++;
-            ul_pdr->flow[ul_pdr->num_of_flow].bid = 1;
-            ul_pdr->flow[ul_pdr->num_of_flow].sdf_filter_id = pf->sdf_filter_id;
-            ul_pdr->num_of_flow++;
         } else {
-            ogs_fatal("Unsupported direction [%d]", pf->direction);
             ogs_assert_if_reached();
+            ogs_fatal("Flow Bidirectional is not supported[%d]",
+                    pf->direction);
         }
     }
 }
@@ -2694,9 +2676,6 @@ smf_pf_t *smf_pf_add(smf_bearer_t *bearer)
     pf->precedence = *(pf->precedence_node);
     ogs_assert(pf->precedence > 0 && pf->precedence <=
             (OGS_MAX_NUM_OF_BEARER * OGS_MAX_NUM_OF_FLOW_IN_BEARER));
-
-    /* Re-use 'pf_precedence_pool' to generate SDF Filter ID */
-    pf->sdf_filter_id = *(pf->precedence_node);
 
     pf->bearer = bearer;
 
@@ -2886,7 +2865,6 @@ int smf_pco_build(uint8_t *pco_buf, uint8_t *buffer, int length)
 
                 ogs_assert(num_of_ipcp <= OGS_PCO_MAX_NUM_OF_IPCP);
                 pco_ipcp[num_of_ipcp].code = 2; /* Code : Configuration Ack */
-                pco_ipcp[num_of_ipcp].identifier = ipcp->identifier; /* ID: Needs to match request */
 
                 out_len = 4;
                 /* Primary DNS Server IP Address */

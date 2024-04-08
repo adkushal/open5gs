@@ -233,7 +233,7 @@ MME-frDi  = 127.0.0.2 :3868 for S6a
 SGWC-gtpc = 127.0.0.3 :2123 for S11
 SGWC-pfcp = 127.0.0.3 :8805 for Sxa
 
-SMF-gtpc  = 127.0.0.4 :2123 for S5c
+SMF-gtpc  = 127.0.0.4 :2123 for S5c, N11
 SMF-gtpu  = 127.0.0.4 :2152 for N4u (Sxu)
 SMF-pfcp  = 127.0.0.4 :8805 for N4 (Sxb)
 SMF-frDi  = 127.0.0.4 :3868 for Gx auth
@@ -335,29 +335,10 @@ $ sudo systemctl restart open5gs-sgwud
 
 #### Setup a 5G Core
 
-You will need to modify the PLMN in your NRF and AMF config, and in case of AMF, further modify the TAC information. The international test PLMN is 001/01, and the international private network PLMN is 999/99. You should stick to using either of these PLMNs unless you have been issued a PLMN by your national regulator. (This PLMN will need to be configured in your gNB).
+You will need to modify your 5G AMF config to support your PLMN and TAC. The international test PLMN is 001/01, and the international private network PLMN is 999/99. You should stick to using either of these PLMNs unless you have been issued a PLMN by your national regulator. (This PLMN will need to be configured in your gNB).
 
 If you are aiming to connect an external gNB to your core, you will also need to change the NGAP bind address of the AMF **and** the GTPU bind address of the UPF. If you are running an gNB stack locally, you will not need to make these changes.
 
-Modify [/etc/open5gs/nrf.yaml](https://github.com/{{ site.github_username }}/open5gs/blob/main/configs/open5gs/nrf.yaml.in) to set the Serving PLMN ID.
-
-```diff
-$ diff --git a/configs/open5gs/nrf.yaml.in b/configs/open5gs/nrf.yaml.in
-index cd9e45feb..58e8cbbce 100644
---- a/configs/open5gs/nrf.yaml.in
-+++ b/configs/open5gs/nrf.yaml.in
-@@ -10,8 +10,8 @@ global:
- nrf:
-   serving:  # 5G roaming requires PLMN in NRF
-     - plmn_id:
--        mcc: 999
--        mnc: 70
-+        mcc: 001
-+        mnc: 01
-   sbi:
-     server:
-       - address: 127.0.0.10
-```
 
 Modify [/etc/open5gs/amf.yaml](https://github.com/{{ site.github_username }}/open5gs/blob/main/configs/open5gs/amf.yaml.in) to set the NGAP IP address, PLMN ID, TAC and NSSAI.
 
@@ -423,7 +404,6 @@ index e78b018f1..35a54419e 100644
 After changing config files, please restart Open5GS daemons.
 
 ```bash
-$ sudo systemctl restart open5gs-nrfd
 $ sudo systemctl restart open5gs-amfd
 $ sudo systemctl restart open5gs-upfd
 ```
@@ -432,7 +412,7 @@ $ sudo systemctl restart open5gs-upfd
 #### Register Subscriber Information
 ---
 
-Connect to `http://localhost:9999` and login with **admin** account.
+Connect to `http://localhost:3000` and login with **admin** account.
 
 > Username : admin  
 > Password : 1423

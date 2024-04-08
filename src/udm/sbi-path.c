@@ -147,7 +147,7 @@ int udm_ue_sbi_discover_and_send(
         ogs_assert(true ==
             ogs_sbi_server_send_error(stream,
                 OGS_SBI_HTTP_STATUS_GATEWAY_TIMEOUT, NULL,
-                "Cannot discover", udm_ue->suci, NULL));
+                "Cannot discover", udm_ue->suci));
         return r;
     }
 
@@ -170,7 +170,7 @@ int udm_sess_sbi_discover_and_send(
         ogs_assert(true ==
             ogs_sbi_server_send_error(stream,
                 OGS_SBI_HTTP_STATUS_GATEWAY_TIMEOUT, NULL,
-                "Cannot discover", NULL, NULL));
+                "Cannot discover", NULL));
         return r;
     }
 

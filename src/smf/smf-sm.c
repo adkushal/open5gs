@@ -58,7 +58,6 @@ void smf_state_operational(ogs_fsm_t *s, smf_event_t *e)
 
     ogs_gtp_xact_t *gtp_xact = NULL;
     ogs_gtp2_message_t gtp2_message;
-    ogs_gtp2_sender_f_teid_t gtp2_sender_f_teid;
     ogs_gtp1_message_t gtp1_message;
 
     ogs_diam_gx_message_t *gx_message = NULL;
@@ -109,8 +108,6 @@ void smf_state_operational(ogs_fsm_t *s, smf_event_t *e)
         }
         e->gtp2_message = &gtp2_message;
 
-        ogs_gtp2_sender_f_teid(&gtp2_sender_f_teid, &gtp2_message);
-
         rv = ogs_gtp_xact_receive(smf_gnode->gnode, &gtp2_message.h, &gtp_xact);
         if (rv != OGS_OK) {
             ogs_pkbuf_free(recvbuf);
@@ -147,21 +144,11 @@ void smf_state_operational(ogs_fsm_t *s, smf_event_t *e)
             }
             if (!sess) {
                 ogs_error("No Session");
-                ogs_gtp2_send_error_message(gtp_xact,
-                        gtp2_sender_f_teid.teid_presence == true ?
-                            gtp2_sender_f_teid.teid : 0,
+                ogs_gtp2_send_error_message(gtp_xact, 0,
                         OGS_GTP2_CREATE_SESSION_RESPONSE_TYPE,
                         OGS_GTP2_CAUSE_CONTEXT_NOT_FOUND);
                 break;
             }
-
-            if (gtp2_sender_f_teid.teid_presence == true)
-                sess->sgw_s5c_teid = gtp2_sender_f_teid.teid;
-
-            ogs_debug("    SGW_S5C_TEID[0x%x], Sender F-TEID(%d)[0x%x]",
-                    sess->sgw_s5c_teid,
-                    gtp2_sender_f_teid.teid_presence, gtp2_sender_f_teid.teid);
-
             e->sess = sess;
             ogs_fsm_dispatch(&sess->sm, e);
             break;
@@ -171,24 +158,10 @@ void smf_state_operational(ogs_fsm_t *s, smf_event_t *e)
             smf_metrics_inst_gtp_node_inc(smf_gnode->metrics, SMF_METR_GTP_NODE_CTR_S5C_RX_DELETESESSIONREQ);
             if (!sess) {
                 ogs_error("No Session");
-                ogs_gtp2_send_error_message(gtp_xact,
-                        gtp2_sender_f_teid.teid_presence == true ?
-                            gtp2_sender_f_teid.teid : 0,
+                ogs_gtp2_send_error_message(gtp_xact, 0,
                         OGS_GTP2_DELETE_SESSION_RESPONSE_TYPE,
                         OGS_GTP2_CAUSE_CONTEXT_NOT_FOUND);
                 break;
-            }
-            if (gtp2_sender_f_teid.teid_presence == true) {
-                if (sess->sgw_s5c_teid != gtp2_sender_f_teid.teid) {
-                    ogs_error("Invalid Sender F-TEID [0x%x != 0x%x]",
-                        sess->sgw_s5c_teid, gtp2_sender_f_teid.teid);
-                    ogs_gtp2_send_error_message(gtp_xact,
-                            gtp2_sender_f_teid.teid_presence == true ?
-                                gtp2_sender_f_teid.teid : 0,
-                            OGS_GTP2_DELETE_SESSION_RESPONSE_TYPE,
-                            OGS_GTP2_CAUSE_INVALID_MESSAGE_FORMAT);
-                    break;
-                }
             }
             e->sess = sess;
             ogs_fsm_dispatch(&sess->sm, e);
@@ -196,8 +169,7 @@ void smf_state_operational(ogs_fsm_t *s, smf_event_t *e)
         case OGS_GTP2_MODIFY_BEARER_REQUEST_TYPE:
             if (!gtp2_message.h.teid_presence) ogs_error("No TEID");
             smf_s5c_handle_modify_bearer_request(
-                sess, gtp_xact, recvbuf,
-                &gtp2_message.modify_bearer_request, &gtp2_sender_f_teid);
+                sess, gtp_xact, recvbuf, &gtp2_message.modify_bearer_request);
             break;
         case OGS_GTP2_CREATE_BEARER_RESPONSE_TYPE:
             if (!gtp2_message.h.teid_presence) ogs_error("No TEID");
@@ -222,8 +194,7 @@ void smf_state_operational(ogs_fsm_t *s, smf_event_t *e)
         case OGS_GTP2_BEARER_RESOURCE_COMMAND_TYPE:
             if (!gtp2_message.h.teid_presence) ogs_error("No TEID");
             smf_s5c_handle_bearer_resource_command(
-                sess, gtp_xact,
-                &gtp2_message.bearer_resource_command, &gtp2_sender_f_teid);
+                sess, gtp_xact, &gtp2_message.bearer_resource_command);
             break;
         default:
             ogs_warn("Not implemented(type:%d)", gtp2_message.h.type);
@@ -357,7 +328,23 @@ void smf_state_operational(ogs_fsm_t *s, smf_event_t *e)
 
         switch(gy_message->cmd_code) {
         case OGS_DIAM_GY_CMD_CODE_CREDIT_CONTROL:
-             ogs_fsm_dispatch(&sess->sm, e);
+            switch(gy_message->cc_request_type) {
+            case OGS_DIAM_GY_CC_REQUEST_TYPE_INITIAL_REQUEST:
+                ogs_fsm_dispatch(&sess->sm, e);
+                break;
+            case OGS_DIAM_GY_CC_REQUEST_TYPE_UPDATE_REQUEST:
+                ogs_assert(e->pfcp_xact);
+                smf_gy_handle_cca_update_request(
+                        sess, gy_message, e->pfcp_xact);
+            break;
+            case OGS_DIAM_GY_CC_REQUEST_TYPE_TERMINATION_REQUEST:
+                ogs_fsm_dispatch(&sess->sm, e);
+                break;
+            default:
+                ogs_error("Not implemented(%d)", gy_message->cc_request_type);
+                break;
+            }
+
             break;
         case OGS_DIAM_GY_CMD_RE_AUTH:
             smf_gy_handle_re_auth_request(sess, gy_message);
@@ -378,7 +365,6 @@ void smf_state_operational(ogs_fsm_t *s, smf_event_t *e)
         ogs_assert(sess);
 
         switch(s6b_message->cmd_code) {
-        case OGS_DIAM_S6B_CMD_AUTHENTICATION_AUTHORIZATION:
         case OGS_DIAM_S6B_CMD_SESSION_TERMINATION:
             ogs_fsm_dispatch(&sess->sm, e);
             break;
@@ -458,8 +444,7 @@ void smf_state_operational(ogs_fsm_t *s, smf_event_t *e)
             ogs_assert(true ==
                 ogs_sbi_server_send_error(
                     stream, OGS_SBI_HTTP_STATUS_BAD_REQUEST,
-                    NULL, "cannot parse HTTP sbi_message", NULL,
-                    NULL));
+                    NULL, "cannot parse HTTP sbi_message", NULL));
             break;
         }
 
@@ -477,7 +462,7 @@ void smf_state_operational(ogs_fsm_t *s, smf_event_t *e)
             ogs_assert(true ==
                 ogs_sbi_server_send_error(
                     stream, OGS_SBI_HTTP_STATUS_BAD_REQUEST,
-                    &sbi_message, "Not supported version", NULL, NULL));
+                    &sbi_message, "Not supported version", NULL));
             ogs_sbi_message_free(&sbi_message);
             break;
         }
@@ -497,7 +482,7 @@ void smf_state_operational(ogs_fsm_t *s, smf_event_t *e)
                     ogs_assert(true ==
                         ogs_sbi_server_send_error(stream,
                             OGS_SBI_HTTP_STATUS_FORBIDDEN, &sbi_message,
-                            "Invalid HTTP method", sbi_message.h.method, NULL));
+                            "Invalid HTTP method", sbi_message.h.method));
                 END
                 break;
 
@@ -508,7 +493,7 @@ void smf_state_operational(ogs_fsm_t *s, smf_event_t *e)
                     ogs_sbi_server_send_error(stream,
                         OGS_SBI_HTTP_STATUS_BAD_REQUEST, &sbi_message,
                         "Invalid resource name",
-                        sbi_message.h.resource.component[0], NULL));
+                        sbi_message.h.resource.component[0]));
             END
             break;
 
@@ -563,8 +548,7 @@ void smf_state_operational(ogs_fsm_t *s, smf_event_t *e)
                     ogs_assert(true ==
                         ogs_sbi_server_send_error(stream,
                             OGS_SBI_HTTP_STATUS_BAD_REQUEST, &sbi_message,
-                            "Invalid HTTP method", sbi_message.h.method,
-                            NULL));
+                            "Invalid HTTP method", sbi_message.h.method));
                     break;
                 END
 
@@ -586,7 +570,7 @@ void smf_state_operational(ogs_fsm_t *s, smf_event_t *e)
                     ogs_sbi_server_send_error(stream,
                         OGS_SBI_HTTP_STATUS_BAD_REQUEST, &sbi_message,
                         "Invalid resource name",
-                        sbi_message.h.resource.component[0], NULL));
+                        sbi_message.h.resource.component[0]));
             END
             break;
 
@@ -604,7 +588,7 @@ void smf_state_operational(ogs_fsm_t *s, smf_event_t *e)
                         ogs_sbi_server_send_error(stream,
                             OGS_SBI_HTTP_STATUS_BAD_REQUEST, &sbi_message,
                             "No smContextRef",
-                            sbi_message.h.resource.component[1], NULL));
+                            sbi_message.h.resource.component[1]));
                     break;
                 }
 
@@ -617,7 +601,7 @@ void smf_state_operational(ogs_fsm_t *s, smf_event_t *e)
                         ogs_sbi_server_send_error(stream,
                             OGS_SBI_HTTP_STATUS_NOT_FOUND, &sbi_message,
                             "Not found",
-                            sbi_message.h.resource.component[1], NULL));
+                            sbi_message.h.resource.component[1]));
                     break;
                 }
 
@@ -637,7 +621,7 @@ void smf_state_operational(ogs_fsm_t *s, smf_event_t *e)
                         ogs_sbi_server_send_error(stream,
                             OGS_SBI_HTTP_STATUS_BAD_REQUEST, &sbi_message,
                             "Invalid resource name",
-                            sbi_message.h.resource.component[0], NULL));
+                            sbi_message.h.resource.component[0]));
                 END
                 break;
             DEFAULT
@@ -647,7 +631,7 @@ void smf_state_operational(ogs_fsm_t *s, smf_event_t *e)
                     ogs_sbi_server_send_error(stream,
                         OGS_SBI_HTTP_STATUS_BAD_REQUEST, &sbi_message,
                         "Invalid resource name",
-                        sbi_message.h.resource.component[0], NULL));
+                        sbi_message.h.resource.component[0]));
             END
             break;
 
@@ -656,7 +640,7 @@ void smf_state_operational(ogs_fsm_t *s, smf_event_t *e)
             ogs_assert(true ==
                 ogs_sbi_server_send_error(stream,
                     OGS_SBI_HTTP_STATUS_BAD_REQUEST, &sbi_message,
-                    "Invalid API name", sbi_message.h.service.name, NULL));
+                    "Invalid API name", sbi_message.h.service.name));
         END
 
         /* In lib/sbi/server.c, notify_completed() releases 'request' buffer. */
@@ -883,8 +867,10 @@ void smf_state_operational(ogs_fsm_t *s, smf_event_t *e)
                     ogs_assert(true ==
                         ogs_sbi_server_send_error(stream,
                             OGS_SBI_HTTP_STATUS_BAD_REQUEST,
-                            NULL, strerror, NULL, NULL));
+                            NULL, strerror, NULL));
                 ogs_free(strerror);
+
+                OGS_FSM_TRAN(s, smf_gsm_state_exception);
                 break;
             }
 
@@ -1007,7 +993,7 @@ void smf_state_operational(ogs_fsm_t *s, smf_event_t *e)
                 ogs_assert(true ==
                     ogs_sbi_server_send_error(stream,
                         OGS_SBI_HTTP_STATUS_GATEWAY_TIMEOUT, NULL,
-                        "Cannot receive SBI message", NULL, NULL));
+                        "Cannot receive SBI message", NULL));
             }
             break;
 

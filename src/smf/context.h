@@ -161,8 +161,6 @@ ED3(uint8_t spare:2;,
 
     uint8_t precedence;             /* Only used in EPC */
 
-    uint32_t sdf_filter_id;         /* SDF Filter ID */
-
     uint8_t *identifier_node;       /* Pool-Node for Identifier */
     uint8_t *precedence_node;       /* Pool-Node for Precedence */
 
@@ -228,8 +226,6 @@ typedef struct smf_sess_s {
         uint32_t gx_cca_init_err; /* Gx CCA RXed error code */
         bool gy_ccr_init_in_flight; /* Waiting for Gy CCA */
         uint32_t gy_cca_init_err; /* Gy CCA RXed error code */
-        bool s6b_aar_in_flight; /* Waiting for S6B AAR */
-        uint32_t s6b_aaa_err; /* S6B AAA RXed error code */
         bool gx_ccr_term_in_flight; /* Waiting for Gx CCA */
         uint32_t gx_cca_term_err; /* Gx CCA RXed error code */
         bool gy_ccr_term_in_flight; /* Waiting for Gy CCA */
@@ -335,7 +331,6 @@ typedef struct smf_sess_s {
     struct {
         uint8_t version; /* GTPC version */
         ogs_tlv_octet_t ue_pco;
-        ogs_tlv_octet_t ue_apco;
         ogs_tlv_octet_t ue_epco;
         ogs_tlv_octet_t user_location_information;
         ogs_tlv_octet_t ue_timezone;

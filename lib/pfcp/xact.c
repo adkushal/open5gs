@@ -161,6 +161,11 @@ static ogs_pfcp_xact_t *ogs_pfcp_xact_remote_create(
     return xact;
 }
 
+ogs_pfcp_xact_t *ogs_pfcp_xact_cycle(ogs_pfcp_xact_t *xact)
+{
+    return ogs_pool_cycle(&pool, xact);
+}
+
 void ogs_pfcp_xact_delete_all(ogs_pfcp_node_t *node)
 {
     ogs_pfcp_xact_t *xact = NULL, *next_xact = NULL;
@@ -712,11 +717,11 @@ int ogs_pfcp_xact_receive(
         }
     }
 
-    if (!new) {
-        ogs_debug("[%d] Cannot find new type %u from PFCP peer [%s]:%d",
-                  xid, type, OGS_ADDR(&node->addr, buf), OGS_PORT(&node->addr));
+    ogs_debug("[%d] Cannot find new type %u from PFCP peer [%s]:%d",
+            xid, type, OGS_ADDR(&node->addr, buf), OGS_PORT(&node->addr));
+
+    if (!new)
         new = ogs_pfcp_xact_remote_create(node, sqn);
-    }
     ogs_assert(new);
 
     ogs_debug("[%d] %s Receive peer [%s]:%d",

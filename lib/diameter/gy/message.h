@@ -1,4 +1,4 @@
-/* Gy Interface, 3GPP TS 32.299
+/*
  * Copyright (C) 2019 by Sukchan Lee <acetcom@gmail.com>
  * Copyright (C) 2022 by sysmocom - s.f.m.c. GmbH <info@sysmocom.de>
  *
@@ -187,8 +187,6 @@ typedef struct ogs_diam_gy_message_s {
             uint32_t time_threshold;
             uint32_t volume_threshold;
             ogs_diam_gy_service_unit_t granted;
-            uint32_t result_code;
-            uint32_t *err;
         } cca;
     };
 } ogs_diam_gy_message_t;

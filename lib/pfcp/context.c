@@ -154,9 +154,7 @@ static int ogs_pfcp_check_subnet_overlapping(void)
     ogs_list_for_each(&self.subnet_list, subnet){
         for (next_subnet = ogs_list_next(subnet); (next_subnet);
                 next_subnet = ogs_list_next(next_subnet)) {
-            if ((strlen(subnet->dnn) == 0 ||
-                 strlen(next_subnet->dnn) == 0 ||
-                (strcmp(subnet->dnn, next_subnet->dnn)) == 0) &&
+            if (strcmp(subnet->dnn, next_subnet->dnn) == 0 &&
                 subnet->gw.family == next_subnet->gw.family) {
                 uint32_t *addr1 = subnet->sub.sub;
                 uint32_t *addr2 = next_subnet->sub.sub;
@@ -750,9 +748,6 @@ int ogs_pfcp_context_parse_config(const char *local, const char *remote)
                         const char *high[OGS_MAX_NUM_OF_SUBNET_RANGE];
                         int i, num = 0;
 
-                        memset(low, 0, sizeof(low));
-                        memset(high, 0, sizeof(high));
-
                         if (ogs_yaml_iter_type(&subnet_array) ==
                                 YAML_MAPPING_NODE) {
                             memcpy(&subnet_iter, &subnet_array,
@@ -868,11 +863,6 @@ ogs_pfcp_node_t *ogs_pfcp_node_new(ogs_sockaddr_t *sa_list)
     ogs_list_init(&node->gtpu_resource_list);
 
     return node;
-}
-
-ogs_pfcp_node_t *ogs_pfcp_node_cycle(ogs_pfcp_node_t *node)
-{
-    return ogs_pool_cycle(&ogs_pfcp_node_pool, node);
 }
 
 void ogs_pfcp_node_free(ogs_pfcp_node_t *node)
@@ -1191,7 +1181,7 @@ void ogs_pfcp_object_teid_hash_set(
             ogs_gtpu_resource_t *resource = NULL;
             resource = ogs_pfcp_find_gtpu_resource(
                     &ogs_gtp_self()->gtpu_resource_list,
-                    pdr->dnn, pdr->src_if);
+                    pdr->dnn, OGS_PFCP_INTERFACE_ACCESS);
             if (resource) {
                 ogs_assert(
                     (resource->info.v4 && pdr->f_teid.ipv4) ||

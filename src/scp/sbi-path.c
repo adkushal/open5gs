@@ -38,7 +38,7 @@ static bool send_request(
 
 static void copy_request(
         ogs_sbi_request_t *target, ogs_sbi_request_t *source,
-        bool do_not_remove_custom_header);
+        bool include_discovery);
 
 int scp_sbi_open(void)
 {
@@ -225,9 +225,6 @@ static int request_handler(ogs_sbi_request_t *request, void *data)
         } else if (!strcasecmp(key, OGS_SBI_CUSTOM_DISCOVERY_SNSSAIS)) {
             if (val)
                 ogs_sbi_discovery_option_parse_snssais(discovery_option, val);
-        } else if (!strcasecmp(key, OGS_SBI_CUSTOM_DISCOVERY_GUAMI)) {
-            if (val)
-                ogs_sbi_discovery_option_parse_guami(discovery_option, val);
         } else if (!strcasecmp(key, OGS_SBI_CUSTOM_DISCOVERY_DNN)) {
             ogs_sbi_discovery_option_set_dnn(discovery_option, val);
         } else if (!strcasecmp(key, OGS_SBI_CUSTOM_DISCOVERY_TAI)) {
@@ -249,8 +246,11 @@ static int request_handler(ogs_sbi_request_t *request, void *data)
             if (val)
                 discovery_option->requester_features =
                     ogs_uint64_from_string(val);
+        } else if (!strcasecmp(key, OGS_SBI_SCHEME)) {
+            /* ':scheme' will be automatically filled in later */
+        } else if (!strcasecmp(key, OGS_SBI_AUTHORITY)) {
+            /* ':authority' will be automatically filled in later */
         } else {
-            /* ':scheme' and ':authority' will be automatically filled in later */
         }
     }
 
@@ -631,7 +631,7 @@ static int response_handler(
         ogs_assert(true ==
             ogs_sbi_server_send_error(stream,
                 OGS_SBI_HTTP_STATUS_INTERNAL_SERVER_ERROR, NULL,
-                "response_handler() failed", NULL, NULL));
+                "response_handler() failed", NULL));
 
         scp_assoc_remove(assoc);
 
@@ -700,7 +700,7 @@ static int nf_discover_handler(
         ogs_assert(true ==
             ogs_sbi_server_send_error(stream,
                 OGS_SBI_HTTP_STATUS_INTERNAL_SERVER_ERROR, NULL,
-                "nf_discover_handler() failed", NULL, NULL));
+                "nf_discover_handler() failed", NULL));
 
         scp_assoc_remove(assoc);
         return OGS_ERROR;
@@ -787,8 +787,7 @@ cleanup:
 
     ogs_assert(true ==
         ogs_sbi_server_send_error(
-            stream, OGS_SBI_HTTP_STATUS_BAD_REQUEST, NULL, strerror, NULL,
-            NULL));
+            stream, OGS_SBI_HTTP_STATUS_BAD_REQUEST, NULL, strerror, NULL));
 
     ogs_free(strerror);
 
@@ -830,7 +829,7 @@ static int sepp_discover_handler(
         ogs_assert(true ==
             ogs_sbi_server_send_error(stream,
                 OGS_SBI_HTTP_STATUS_INTERNAL_SERVER_ERROR, NULL,
-                "sepp_discover_handler() failed", NULL, NULL));
+                "sepp_discover_handler() failed", NULL));
 
         scp_assoc_remove(assoc);
         return OGS_ERROR;
@@ -882,8 +881,7 @@ cleanup:
 
     ogs_assert(true ==
         ogs_sbi_server_send_error(
-            stream, OGS_SBI_HTTP_STATUS_BAD_REQUEST, NULL, strerror, NULL,
-            NULL));
+            stream, OGS_SBI_HTTP_STATUS_BAD_REQUEST, NULL, strerror, NULL));
 
     ogs_free(strerror);
 
